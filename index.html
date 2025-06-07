@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather Forecast</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+   <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-gradient-to-tr from-slate-100 to-blue-200 dark:from-slate-900 dark:via-indigo-900 dark:to-blue-900 min-h-screen flex items-center justify-center px-4 transition-all">
+  <div class="bg-white/30 dark:bg-white/10 backdrop-blur-xl shadow-2xl rounded-3xl p-8 w-full max-w-md text-center border border-white/20">
+    
+    
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white drop-shadow-lg">🌤️ Weather Forecast</h1>
+      <button onclick="toggleTheme()" class="bg-indigo-300 dark:bg-indigo-700 text-white px-3 py-1 rounded-xl text-sm font-medium hover:scale-105 transition">Change Theme</button>
+    </div>
+
+    
+    <div class="relative mb-4">
+      <input id="cityInput" type="text" placeholder="Enter city name"
+        class="w-full px-4 py-2 rounded-xl bg-white/60 dark:bg-white/20 text-black dark:text-white placeholder-gray-500 dark:placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-indigo-300 border border-white/30"
+        oninput="autocompleteCity()" autocomplete="off" />
+      <ul id="suggestions" class="absolute z-10 w-full bg-white text-black rounded-xl mt-1 max-h-40 overflow-y-auto hidden shadow-lg"></ul>
+    </div>
+
+    <button onclick="getWeather()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-indigo-700 transition mb-4 w-full">Get Weather</button>
+
+    
+    <div id="recentSearches" class="text-left text-sm mb-4 text-black dark:text-white"></div>
+    <div class="result-box"></div>
+
+    
+    <div id="loading" class="hidden mb-4 text-indigo-600 dark:text-indigo-200 animate-pulse">Fetching weather...</div>
+
+    <div id="weatherResult" class="mt-6 text-black dark:text-white hidden">
+      <img id="weatherIcon" class="mx-auto mb-4 w-20 h-20 drop-shadow-xl" alt="Weather Icon">
+      <p id="weatherDescription" class="text-xl font-medium"></p>
+      <p id="temperature" class="text-2xl font-semibold"></p>
+      <p id="humidity" class="text-sm opacity-80"></p>
+      <p id="windSpeed" class="text-sm opacity-80"></p>
+      <p id="cloudCover" class="text-sm opacity-80"></p>
+    </div>
+
+    <div id="error" class="text-red-500 mt-6 hidden font-semibold">❌ City not found. Try again.</div>
+  </div>
+
+  <script>
+    const apiKey = 'ade1b5741945c6a047fdea1f9ffdec61'; 
+    const suggestionsList = document.getElementById('suggestions');
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    function updateRecentSearches(city) {
+      let searches = JSON.parse(localStorage.getItem('recentSearches')) || [];
+      searches = [city, ...searches.filter(c => c !== city)].slice(0, 5);
+      localStorage.setItem('recentSearches', JSON.stringify(searches));
+      renderRecentSearches();
+    }
+
+    function renderRecentSearches() {
+      const recentSearches = JSON.parse(localStorage.getItem('recentSearches')) || [];
+      const container = document.getElementById('recentSearches');
+      container.innerHTML = recentSearches.length ? '<strong>Recent:</strong> ' : '';
+      recentSearches.forEach(city => {
+        const span = document.createElement('span');
+        span.textContent = city;
+        span.className = 'cursor-pointer underline mx-1 hover:text-indigo-600 dark:hover:text-indigo-300';
+        span.onclick = () => {
+          document.getElementById('cityInput').value = city;
+          getWeather();
+        };
+        container.appendChild(span);
+      });
+    }
+
+    // async function autocompleteCity() {
+    //   const query = document.getElementById('cityInput').value.trim();
+    //   if (!query) {
+    //     suggestionsList.classList.add('hidden');
+    //     return;
+    //   }
+
+    //   try {
+    //     const res = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${query}&limit=5&appid=${apiKey}`);
+    //     const cities = await res.json();
+
+    //     suggestionsList.innerHTML = '';
+    //     cities.forEach(city => {
+    //       const li = document.createElement('li');
+    //       li.textContent = `${city.name}, ${city.country}`;
+    //       li.className = 'px-4 py-2 hover:bg-indigo-100 cursor-pointer';
+    //       li.onclick = () => {
+    //         document.getElementById('cityInput').value = city.name;
+    //         suggestionsList.classList.add('hidden');
+    //       };
+    //       suggestionsList.appendChild(li);
+    //     });
+    //     suggestionsList.classList.remove('hidden');
+    //   } catch {
+    //     suggestionsList.classList.add('hidden');
+    //   }
+    // }
+
+    async function getWeather() {
+      const city = document.getElementById('cityInput').value.trim();
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const weatherResult = document.getElementById('weatherResult');
+      suggestionsList.classList.add('hidden');
+
+      loading.classList.remove('hidden');
+      error.classList.add('hidden');
+      weatherResult.classList.add('hidden');
+
+      try {
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`);
+        const data = await res.json();
+        if (data.cod !== 200) throw new Error();
+
+        document.getElementById('weatherIcon').src = `http://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+        document.getElementById('weatherDescription').textContent = `Condition: ${data.weather[0].description}`;
+        document.getElementById('temperature').textContent = `Temperature: ${data.main.temp}°C`;
+        document.getElementById('humidity').textContent = `Humidity: ${data.main.humidity}%`;
+        document.getElementById('windSpeed').textContent = `Wind Speed: ${data.wind.speed} m/s`;
+        document.getElementById('cloudCover').textContent = `Cloud Cover: ${data.clouds.all}%`;
+
+        weatherResult.classList.remove('hidden');
+        updateRecentSearches(city);
+      } catch {
+        error.classList.remove('hidden');
+      } finally {
+        loading.classList.add('hidden');
+      }
+    }
+
+    
+    renderRecentSearches();
+  </script>
+  <script src="city.js"></script>
+
+</body>
+</html>
